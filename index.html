@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>請假時間估算系統</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Microsoft JhengHei', 'PingFang TC', 'Noto Sans TC', sans-serif;
+      background: #eef2f7;
+      color: #1f2937;
+      min-height: 100vh;
+    }
+
+    .page-header {
+      background: linear-gradient(135deg, #1a56db 0%, #1e40af 100%);
+      color: white;
+      text-align: center;
+      padding: 28px 20px 22px;
+    }
+    .page-header h1 { font-size: 1.6rem; font-weight: 800; letter-spacing: 0.05em; }
+    .page-header p { font-size: 0.9rem; opacity: 0.8; margin-top: 6px; }
+
+    .container { max-width: 580px; margin: 0 auto; padding: 20px 16px 40px; }
+
+    .card {
+      background: #ffffff;
+      border-radius: 14px;
+      padding: 20px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+      margin-bottom: 16px;
+    }
+
+    .card-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 14px;
+    }
+
+    .form-group { margin-bottom: 16px; }
+    .form-group:last-child { margin-bottom: 0; }
+
+    label {
+      display: block;
+      font-weight: 600;
+      font-size: 0.95rem;
+      color: #374151;
+      margin-bottom: 6px;
+    }
+
+    .label-hint {
+      font-size: 0.78rem;
+      color: #9ca3af;
+      font-weight: 400;
+      margin-left: 6px;
+    }
+
+    .time-picker {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .time-picker select {
+      flex: 1;
+      padding: 11px 10px;
+      border: 2px solid #e5e7eb;
+      border-radius: 10px;
+      font-size: 1.2rem;
+      font-family: 'Menlo', 'Courier New', monospace;
+      font-weight: 700;
+      color: #111827;
+      background: #f9fafb;
+      text-align: center;
+      transition: border-color 0.15s, background 0.15s;
+      appearance: none;
+      -webkit-appearance: none;
+      cursor: pointer;
+    }
+    .time-picker select:focus {
+      outline: none;
+      border-color: #1a56db;
+      background: #fff;
+    }
+    .time-colon {
+      font-size: 1.4rem;
+      font-weight: 900;
+      color: #374151;
+      line-height: 1;
+      margin-top: -2px;
+    }
+
+    .field-note {
+      font-size: 0.78rem;
+      color: #9ca3af;
+      margin-top: 5px;
+      line-height: 1.4;
+    }
+
+    .btn-calc {
+      width: 100%;
+      padding: 13px;
+      background: #1a56db;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      letter-spacing: 0.04em;
+      transition: background 0.15s, transform 0.1s;
+      margin-top: 4px;
+    }
+    .btn-calc:hover { background: #1447b8; }
+    .btn-calc:active { transform: scale(0.98); }
+
+    /* Rules accordion */
+    .rules-toggle {
+      background: none;
+      border: none;
+      font-family: inherit;
+      font-size: 0.82rem;
+      color: #6b7280;
+      cursor: pointer;
+      padding: 8px 0 0;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      width: 100%;
+    }
+    .rules-toggle:hover { color: #374151; }
+    .rules-toggle .arrow { transition: transform 0.2s; display: inline-block; }
+    .rules-toggle.open .arrow { transform: rotate(90deg); }
+
+    .rules-body {
+      display: none;
+      padding: 10px 0 0;
+      font-size: 0.8rem;
+      color: #6b7280;
+      line-height: 1.7;
+    }
+    .rules-body.visible { display: block; }
+    .rules-body li { margin-left: 16px; }
+
+    /* Results */
+    #result { display: none; }
+
+    /* Work info grid */
+    .work-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+    .info-cell {
+      background: #eff6ff;
+      border-radius: 8px;
+      padding: 10px 12px;
+    }
+    .info-cell .ic-label { font-size: 0.73rem; color: #3b82f6; font-weight: 700; margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .info-cell .ic-value { font-size: 1.05rem; font-weight: 800; color: #1e3a6e; }
+
+    .lunch-note { font-size: 0.78rem; color: #9ca3af; margin-top: 8px; }
+
+    /* Departure highlight */
+    .dep-banner {
+      background: linear-gradient(135deg, #ecfdf5, #d1fae5);
+      border: 2px solid #34d399;
+      border-radius: 10px;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .dep-banner .dep-label { font-size: 0.82rem; font-weight: 600; color: #059669; }
+    .dep-banner .dep-time { font-size: 1.4rem; font-weight: 900; color: #065f46; }
+
+    /* No leave needed banner */
+    .no-leave-banner {
+      background: #f0fdf4;
+      border: 2px solid #86efac;
+      border-radius: 10px;
+      padding: 18px;
+      text-align: center;
+      margin-bottom: 16px;
+    }
+    .no-leave-banner .nlb-icon { font-size: 2rem; }
+    .no-leave-banner .nlb-title { font-size: 1rem; font-weight: 700; color: #16a34a; margin-top: 6px; }
+    .no-leave-banner .nlb-sub { font-size: 0.82rem; color: #6b7280; margin-top: 4px; }
+
+    /* Slip cards */
+    .slip { border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; position: relative; border: 2px solid transparent; }
+    .slip-late { background: #fffbeb; border-color: #fcd34d; }
+    .slip-early { background: #eff6ff; border-color: #93c5fd; }
+
+    .slip-tag {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 2px 9px;
+      border-radius: 20px;
+      margin-bottom: 8px;
+      letter-spacing: 0.04em;
+    }
+    .tag-late { background: #f59e0b; color: white; }
+    .tag-early { background: #2563eb; color: white; }
+
+    .slip-index {
+      position: absolute;
+      top: 10px;
+      right: 14px;
+      font-size: 0.72rem;
+      color: #9ca3af;
+      font-weight: 600;
+    }
+
+    .slip-time { font-size: 1.35rem; font-weight: 900; color: #1e3a6e; margin-bottom: 3px; }
+    .slip-dur { font-size: 0.88rem; color: #4b5563; font-weight: 500; }
+
+    .slip-alert {
+      margin-top: 8px;
+      background: #fef3c7;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 0.78rem;
+      color: #92400e;
+      line-height: 1.4;
+    }
+
+    /* Total */
+    .total-card {
+      background: linear-gradient(135deg, #1a56db, #2563eb);
+      color: white;
+      border-radius: 14px;
+      padding: 18px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .total-left .tl-label { font-size: 0.82rem; opacity: 0.8; }
+    .total-left .tl-count { font-size: 1.1rem; font-weight: 800; margin-top: 2px; }
+    .total-right { text-align: right; }
+    .total-right .tr-label { font-size: 0.78rem; opacity: 0.8; }
+    .total-right .tr-value { font-size: 1.5rem; font-weight: 900; }
+
+    /* Error */
+    .error-box {
+      background: #fef2f2;
+      border: 2px solid #fca5a5;
+      border-radius: 10px;
+      padding: 14px 16px;
+      color: #dc2626;
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>請假時間估算系統</h1>
+  <p>輸入上班與請假時間，自動計算假單張數與時段</p>
+</div>
+
+<div class="container">
+
+  <!-- Input Card -->
+  <div class="card">
+    <div class="card-title">輸入資訊</div>
+
+    <div class="form-group">
+      <label>今日上班打卡時間</label>
+      <div class="time-picker">
+        <select id="arrival-h" onchange="syncDeparture()"></select>
+        <span class="time-colon">:</span>
+        <select id="arrival-m" onchange="syncDeparture()"></select>
+      </div>
+      <div class="field-note">彈性時間 09:00–09:30｜09:30 前到視為正常，但若同日請假則須補繳遲到時數</div>
+    </div>
+
+    <div class="form-group">
+      <label>
+        預計請假離開時間
+        <span class="label-hint">（想幾點離開公司）</span>
+      </label>
+      <div class="time-picker">
+        <select id="departure-h"></select>
+        <span class="time-colon">:</span>
+        <select id="departure-m"></select>
+      </div>
+      <div class="field-note">跨越 12:00–13:00 午休時工具會自動處理，只需填入實際想離開的時間</div>
+    </div>
+
+    <button class="btn-calc" onclick="calculate()">計算假單</button>
+
+    <button class="rules-toggle" onclick="toggleRules(this)">
+      <span class="arrow">▶</span> 請假規則說明
+    </button>
+    <div class="rules-body" id="rulesBody">
+      <ul>
+        <li>每日在公司待滿 <strong>9 小時</strong>（含午休 1 小時，實際工作 8 小時）</li>
+        <li>上班時間彈性區間：<strong>08:00–09:30</strong>，依實際到班時間計算下班時間</li>
+        <li>09:01 後到班且同日請假，須將 09:00 至到班時間列入假單（最低 30 分鐘）</li>
+        <li>假單最短 <strong>30 分鐘</strong>，超過後以 <strong>5 分鐘</strong>為單位</li>
+        <li>12:00–13:00 為午休，跨越午休時間工具會自動計算，<strong>一律只需一張假單</strong></li>
+        <li>兩張假單僅出現在：09:01 後打卡 <strong>且</strong> 同日有提早離開的情況</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Result Area -->
+  <div id="result"></div>
+
+</div>
+
+<script>
+  // ── 常數 ──────────────────────────────────────────
+  const T9    = 9  * 60;        // 09:00
+  const T12   = 12 * 60;        // 12:00
+  const T13   = 13 * 60;        // 13:00
+  const WORK  = 9  * 60;        // 9 小時工作制
+
+  // ── 工具函數 ──────────────────────────────────────
+  function toMin(str) {
+    const [h, m] = str.split(':').map(Number);
+    return h * 60 + m;
+  }
+
+  function fmt(min) {
+    const h = Math.floor(min / 60);
+    const m = min % 60;
+    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+  }
+
+  function fmtDur(min) {
+    const h = Math.floor(min / 60);
+    const m = min % 60;
+    if (h === 0) return `${m} 分鐘`;
+    if (m === 0) return `${h} 小時`;
+    return `${h} 小時 ${m} 分鐘`;
+  }
+
+  // 最低 30 分鐘，超過後無條件進位至 5 分鐘倍數
+  function roundUp(min) {
+    if (min <= 0)  return 0;
+    if (min <= 30) return 30;
+    return Math.ceil(min / 5) * 5;
+  }
+
+  // ── 核心計算 ──────────────────────────────────────
+  function runCalc(arrivalStr, departureStr) {
+    const arrival  = toMin(arrivalStr);
+    const wantLeave = toMin(departureStr);
+
+    const slips = [];   // { type, typeClass, start, end, duration, note }
+    let workStart, workEnd, actualDeparture;
+
+    // ① 先以實際到班時間確認是否需要請假
+    //    若待滿 9 小時（到班時間 + 9h），完全不需請假，也不需遲到補假
+    const actualWorkEnd = arrival + WORK;
+    if (wantLeave >= actualWorkEnd) {
+      return { slips: [], workStart: arrival, workEnd: actualWorkEnd, actualDeparture: actualWorkEnd, noEarlyLeave: true };
+    }
+
+    // ② 確認需要提早離開 → 才判斷遲到補假（09:01 後且同日請假）
+    if (arrival > T9) {
+      const lateDur   = arrival - T9;           // 實際遲到分鐘
+      const rounded   = roundUp(lateDur);       // 補足到合法時數
+      const lateStart = arrival - rounded;
+      slips.push({
+        type:      '遲到補假',
+        typeClass: 'slip-late',
+        tag:       '遲到補假',
+        tagClass:  'tag-late',
+        start:     lateStart,
+        end:       arrival,
+        duration:  rounded,
+        note: lateDur < 30
+          ? `實際遲到 ${lateDur} 分鐘，未達最低 30 分鐘，自動往前補至 ${fmt(lateStart)}`
+          : null
+      });
+      workStart = lateStart;
+    } else {
+      workStart = arrival;
+    }
+
+    workEnd = workStart + WORK;
+
+    // ③ 若加上遲到補假的調整後，離開時間已不早於下班時間，只需遲到補假
+    if (wantLeave >= workEnd) {
+      return { slips, workStart, workEnd, actualDeparture: workEnd, noEarlyLeave: true };
+    }
+
+    // ④ 午休等效：12:01–12:59 等同 12:00 離開（下午假從 13:00 算）
+    let effectiveDep = wantLeave;
+    let lunchNote    = null;
+    if (wantLeave > T12 && wantLeave < T13) {
+      lunchNote    = `您輸入 ${fmt(wantLeave)}，午休期間離開與 12:00 離開等效，下午假單從 13:00 起算`;
+      effectiveDep = T12;
+    }
+
+    // ⑤ 計算提早離開假
+    if (effectiveDep >= T13) {
+      // 下午離開
+      const earlyDur  = workEnd - effectiveDep;
+      const rounded   = roundUp(earlyDur);
+      const slipStart = workEnd - rounded;
+
+      slips.push({
+        type:      '提早離開',
+        typeClass: 'slip-early',
+        tag:       '提早離開',
+        tagClass:  'tag-early',
+        start:     slipStart,
+        end:       workEnd,
+        duration:  rounded,
+        note: slipStart < effectiveDep
+          ? `您輸入 ${fmt(effectiveDep)}，因最低 30 分鐘且須為 5 分鐘倍數，離開時間調整至 ${fmt(slipStart)}`
+          : null
+      });
+      actualDeparture = slipStart;
+
+    } else if (effectiveDep === T12) {
+      // 中午離開（12:00 或午休中）
+      const aftDur = workEnd - T13;
+      if (aftDur > 0) {
+        slips.push({
+          type:      '下午請假',
+          typeClass: 'slip-early',
+          tag:       '下午請假',
+          tagClass:  'tag-early',
+          start:     T13,
+          end:       workEnd,
+          duration:  aftDur,
+          note:      lunchNote
+        });
+      }
+      actualDeparture = T12;
+
+    } else {
+      // 上午離開（< 12:00）→ 一律只需一張假單（從離開時間到下班，午休不計入時數）
+      const morDur   = T12 - effectiveDep;
+      const rounded  = roundUp(morDur);
+      const morStart = T12 - rounded;
+
+      const aftDur = workEnd - T13;
+      const totalLeaveDur = (T12 - morStart) + (aftDur > 0 ? aftDur : 0);
+
+      let noteMsg = morStart < effectiveDep
+        ? `您輸入 ${fmt(effectiveDep)}，因最低 30 分鐘且須為 5 分鐘倍數，離開時間調整至 ${fmt(morStart)}`
+        : null;
+      if (aftDur > 0) {
+        const lunchMsg = `午休 12:00–13:00 不計入請假時數，實際扣假 ${fmtDur(totalLeaveDur)}`;
+        noteMsg = noteMsg ? noteMsg + '；' + lunchMsg : lunchMsg;
+      }
+
+      slips.push({
+        type:      '提早離開',
+        typeClass: 'slip-early',
+        tag:       '提早離開',
+        tagClass:  'tag-early',
+        start:     morStart,
+        end:       workEnd,
+        duration:  totalLeaveDur,
+        note:      noteMsg
+      });
+      actualDeparture = morStart;
+    }
+
+    return { slips, workStart, workEnd, actualDeparture, noEarlyLeave: false };
+  }
+
+  // ── 渲染 ──────────────────────────────────────────
+  function renderResult(arrival, departure, data) {
+    const { slips, workStart, workEnd, actualDeparture, noEarlyLeave } = data;
+    let html = '';
+
+    // 工作時段資訊
+    html += `
+      <div class="card">
+        <div class="card-title">今日出勤資訊</div>
+        <div class="work-grid">
+          <div class="info-cell">
+            <div class="ic-label">有效上班時間</div>
+            <div class="ic-value">${fmt(workStart)}</div>
+          </div>
+          <div class="info-cell">
+            <div class="ic-label">正常下班時間</div>
+            <div class="ic-value">${fmt(workEnd)}</div>
+          </div>
+        </div>
+        <div class="lunch-note">午休：12:00 – 13:00（總計 9 小時，實際工作 8 小時）</div>
+      </div>
+    `;
+
+    // 無需提早假的情況
+    if (noEarlyLeave) {
+      if (slips.length === 0) {
+        // 完全不需請假
+        html += `
+          <div class="no-leave-banner">
+            <div class="nlb-icon">✓</div>
+            <div class="nlb-title">今日無需請假</div>
+            <div class="nlb-sub">到班時間正常，且離開時間不早於正常下班</div>
+          </div>
+        `;
+      } else {
+        // 只有遲到補假，不需提早假
+        html += `
+          <div class="no-leave-banner">
+            <div class="nlb-icon">ℹ</div>
+            <div class="nlb-title">無需提早離開假</div>
+            <div class="nlb-sub">但因 09:01 後到班，需填寫以下遲到補假單</div>
+          </div>
+        `;
+      }
+    } else {
+      // 顯示實際離開時間
+      html += `
+        <div class="dep-banner">
+          <div class="dep-label">實際離開時間</div>
+          <div class="dep-time">${fmt(actualDeparture)}</div>
+        </div>
+      `;
+    }
+
+    // 假單列表
+    if (slips.length > 0) {
+      html += `<div class="card"><div class="card-title">假單清單（共 ${slips.length} 張）</div>`;
+      slips.forEach((s, i) => {
+        html += `
+          <div class="slip ${s.typeClass}">
+            <span class="slip-tag ${s.tagClass}">${s.tag}</span>
+            <span class="slip-index">第 ${i + 1} 張</span>
+            <div class="slip-time">${fmt(s.start)} &nbsp;~&nbsp; ${fmt(s.end)}</div>
+            <div class="slip-dur">請假時數：<strong>${fmtDur(s.duration)}</strong></div>
+            ${s.note ? `<div class="slip-alert">⚠ ${s.note}</div>` : ''}
+          </div>
+        `;
+      });
+      html += '</div>';
+
+      // 合計
+      const total = slips.reduce((acc, s) => acc + s.duration, 0);
+      html += `
+        <div class="total-card">
+          <div class="total-left">
+            <div class="tl-label">需要張數</div>
+            <div class="tl-count">${slips.length} 張假單</div>
+          </div>
+          <div class="total-right">
+            <div class="tr-label">總請假時數</div>
+            <div class="tr-value">${fmtDur(total)}</div>
+          </div>
+        </div>
+      `;
+    }
+
+    return html;
+  }
+
+  // ── 初始化下拉選單 ────────────────────────────────
+  function buildSelects() {
+    const arrH  = document.getElementById('arrival-h');
+    const arrM  = document.getElementById('arrival-m');
+    const depH  = document.getElementById('departure-h');
+    const depM  = document.getElementById('departure-m');
+
+    // 上班時間：08–18 時
+    for (let h = 8; h <= 18; h++) {
+      const opt = new Option(String(h).padStart(2,'0'), h);
+      arrH.add(opt);
+    }
+    arrH.value = 9;   // 預設 09
+
+    // 下班/請假時間：08–20 時
+    for (let h = 8; h <= 20; h++) {
+      const opt = new Option(String(h).padStart(2,'0'), h);
+      depH.add(opt);
+    }
+    depH.value = 17;  // 預設 17
+
+    // 分鐘：00, 05, 10, ..., 55
+    [arrM, depM].forEach(sel => {
+      for (let m = 0; m < 60; m += 5) {
+        sel.add(new Option(String(m).padStart(2,'0'), m));
+      }
+    });
+    arrM.value = 0;
+    depM.value = 0;
+  }
+
+  // 當上班時間改變時，確保離開時間不早於上班時間
+  function syncDeparture() {
+    const arrH = parseInt(document.getElementById('arrival-h').value);
+    const depH = document.getElementById('departure-h');
+    if (parseInt(depH.value) < arrH) depH.value = arrH;
+  }
+
+  function getTimeStr(hId, mId) {
+    const h = document.getElementById(hId).value;
+    const m = document.getElementById(mId).value;
+    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+  }
+
+  buildSelects();
+
+  // ── 主入口 ────────────────────────────────────────
+  function calculate() {
+    const arrivalStr   = getTimeStr('arrival-h', 'arrival-m');
+    const departureStr = getTimeStr('departure-h', 'departure-m');
+    const resultDiv    = document.getElementById('result');
+    resultDiv.style.display = 'block';
+
+    const arrival  = toMin(arrivalStr);
+    const departure = toMin(departureStr);
+
+    if (arrival < toMin('08:00')) {
+      resultDiv.innerHTML = '<div class="error-box">上班時間最早為 08:00</div>';
+      return;
+    }
+    if (arrival > toMin('18:00')) {
+      resultDiv.innerHTML = '<div class="error-box">上班時間超出合理範圍（最晚 18:00）</div>';
+      return;
+    }
+    if (departure <= arrival) {
+      resultDiv.innerHTML = '<div class="error-box">請假時間必須晚於上班時間</div>';
+      return;
+    }
+
+    const data = runCalc(arrivalStr, departureStr);
+    resultDiv.innerHTML = renderResult(arrival, departure, data);
+
+    // 滾動至結果
+    resultDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function toggleRules(btn) {
+    btn.classList.toggle('open');
+    document.getElementById('rulesBody').classList.toggle('visible');
+  }
+
+  // Enter 鍵觸發計算
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Enter') calculate();
+  });
+</script>
+
+</body>
+</html>
