@@ -282,7 +282,7 @@
         <span class="time-colon">:</span>
         <select id="arrival-m" onchange="syncDeparture()"></select>
       </div>
-      <div class="field-note">彈性時間 09:00–09:30｜09:30 前到視為正常，但若同日請假則須補繳遲到時數</div>
+      <div class="field-note">彈性時間 09:00–09:30｜09:30（含）前到視為正常；09:31 後打卡一律需填遲到補假單</div>
     </div>
 
     <div class="form-group">
@@ -307,10 +307,11 @@
       <ul>
         <li>每日在公司待滿 <strong>9 小時</strong>（含午休 1 小時，實際工作 8 小時）</li>
         <li>上班時間彈性區間：<strong>08:00–09:30</strong>，依實際到班時間計算下班時間</li>
-        <li>09:01 後到班且同日請假，須將 09:00 至到班時間列入假單（最低 30 分鐘）</li>
+        <li>09:01–09:30 到班且同日請假，須將 09:00 至到班時間列入假單（最低 30 分鐘）</li>
+        <li><strong>09:31 後到班，無論何時離開，一律需填遲到補假單</strong>（以 09:00 為基準起算）</li>
         <li>假單最短 <strong>30 分鐘</strong>，超過後以 <strong>5 分鐘</strong>為單位</li>
         <li>12:00–13:00 為午休，跨越午休時間工具會自動計算，<strong>一律只需一張假單</strong></li>
-        <li>兩張假單僅出現在：09:01 後打卡 <strong>且</strong> 同日有提早離開的情況</li>
+        <li>兩張假單僅出現在：09:01 後打卡 <strong>且</strong> 同日有提早離開的情況（09:31 後打卡不提早離開仍有一張遲到補假）</li>
       </ul>
     </div>
   </div>
@@ -323,6 +324,7 @@
 <script>
   // ── 常數 ──────────────────────────────────────────
   const T9    = 9  * 60;        // 09:00
+  const T930  = 9  * 60 + 30;  // 09:30（彈性上班截止）
   const T12   = 12 * 60;        // 12:00
   const T13   = 13 * 60;        // 13:00
   const WORK  = 9  * 60;        // 9 小時工作制
@@ -363,9 +365,10 @@
     let workStart, workEnd, actualDeparture;
 
     // ① 先以實際到班時間確認是否需要請假
-    //    若待滿 9 小時（到班時間 + 9h），完全不需請假，也不需遲到補假
+    //    09:30 以前到班：若待滿 9 小時，完全不需請假
+    //    09:31 以後到班：一律需要遲到補假，不可以到班時間+9小時算正常工時
     const actualWorkEnd = arrival + WORK;
-    if (wantLeave >= actualWorkEnd) {
+    if (arrival <= T930 && wantLeave >= actualWorkEnd) {
       return { slips: [], workStart: arrival, workEnd: actualWorkEnd, actualDeparture: actualWorkEnd, noEarlyLeave: true };
     }
 
