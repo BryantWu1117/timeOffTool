@@ -307,11 +307,11 @@
       <ul>
         <li>每日在公司待滿 <strong>9 小時</strong>（含午休 1 小時，實際工作 8 小時）</li>
         <li>上班時間彈性區間：<strong>08:00–09:30</strong>，依實際到班時間計算下班時間</li>
-        <li>09:01–09:30 到班且同日請假，須將 09:00 至到班時間列入假單（最低 30 分鐘）</li>
-        <li><strong>09:31 後到班，無論何時離開，一律需填遲到補假單</strong>（以 09:00 為基準起算）</li>
+        <li>09:01–09:30 到班且同日提早離開，須<strong>往前調整上班時間</strong>（一張晨間假單），將有效上班時間提前，下班時間隨之縮短；18:01–18:30 屬彈性延伸區間，<strong>不可作為請假時段</strong></li>
+        <li><strong>09:31 後到班，無論何時離開，一律需填遲到補假單</strong>（以 09:30 為基準起算）</li>
         <li>假單最短 <strong>30 分鐘</strong>，超過後以 <strong>5 分鐘</strong>為單位</li>
         <li>12:00–13:00 為午休，跨越午休時間工具會自動計算，<strong>一律只需一張假單</strong></li>
-        <li>兩張假單僅出現在：09:01 後打卡 <strong>且</strong> 同日有提早離開的情況（09:31 後打卡不提早離開仍有一張遲到補假）</li>
+        <li>兩張假單僅出現在：09:31 後打卡 <strong>且</strong> 同日有提早離開、或 09:01–09:30 打卡且需早退超過 08:00 可往前量（極罕見）</li>
       </ul>
     </div>
   </div>
@@ -323,6 +323,7 @@
 
 <script>
   // ── 常數 ──────────────────────────────────────────
+  const T8    = 8  * 60;        // 08:00（最早彈性上班時間）
   const T9    = 9  * 60;        // 09:00
   const T930  = 9  * 60 + 30;  // 09:30（彈性上班截止）
   const T12   = 12 * 60;        // 12:00
@@ -358,24 +359,23 @@
 
   // ── 核心計算 ──────────────────────────────────────
   function runCalc(arrivalStr, departureStr) {
-    const arrival  = toMin(arrivalStr);
+    const arrival   = toMin(arrivalStr);
     const wantLeave = toMin(departureStr);
 
     const slips = [];   // { type, typeClass, start, end, duration, note }
     let workStart, workEnd, actualDeparture;
 
-    // ① 先以實際到班時間確認是否需要請假
-    //    09:30 以前到班：若待滿 9 小時，完全不需請假
-    //    09:31 以後到班：一律需要遲到補假，不可以到班時間+9小時算正常工時
-    const actualWorkEnd = arrival + WORK;
-    if (arrival <= T930 && wantLeave >= actualWorkEnd) {
-      return { slips: [], workStart: arrival, workEnd: actualWorkEnd, actualDeparture: actualWorkEnd, noEarlyLeave: true };
+    // ① 不需請假：彈性時間內（含09:30）到班，且離開時間不早於正常下班
+    const naturalWorkEnd = arrival + WORK;
+    if (arrival <= T930 && wantLeave >= naturalWorkEnd) {
+      return { slips: [], workStart: arrival, workEnd: naturalWorkEnd,
+               actualDeparture: naturalWorkEnd, noEarlyLeave: true };
     }
 
-    // ② 確認需要提早離開 → 才判斷遲到補假（09:01 後且同日請假）
-    if (arrival > T9) {
-      const lateDur   = arrival - T9;           // 實際遲到分鐘
-      const rounded   = roundUp(lateDur);       // 補足到合法時數
+    // ② 09:31 後到班 → 遲到補假（以 09:30 為基準）
+    if (arrival > T930) {
+      const lateDur   = arrival - T930;
+      const rounded   = roundUp(lateDur);
       const lateStart = arrival - rounded;
       slips.push({
         type:      '遲到補假',
@@ -390,18 +390,66 @@
           : null
       });
       workStart = lateStart;
+      workEnd   = workStart + WORK;
+
+      // 若遲到補假調整後離開時間已不早於下班，只需遲到補假
+      if (wantLeave >= workEnd) {
+        return { slips, workStart, workEnd, actualDeparture: workEnd, noEarlyLeave: true };
+      }
+      // 同日又提早離開 → 繼續到下方早退假計算
+
+    // ③ 09:01–09:30 彈性時間到班 + 提早離開
+    //    做法：往前請上班時間，讓有效上班時間提前，下班時間跟著縮短
+    //    18:01–18:30 屬彈性延伸區間，不能作為請假時段，故只能往前調整
+    } else if (arrival > T9) {
+      const leaveNeeded  = naturalWorkEnd - wantLeave;
+      const slipDuration = roundUp(leaveNeeded);
+      const slipStart    = arrival - slipDuration;
+
+      if (slipStart >= T8) {
+        // 一張晨間假單完全涵蓋，有效上班時間往前移
+        const newWorkEnd = slipStart + WORK;
+        slips.push({
+          type:      '遲到補假',
+          typeClass: 'slip-late',
+          tag:       '遲到補假',
+          tagClass:  'tag-late',
+          start:     slipStart,
+          end:       arrival,
+          duration:  slipDuration,
+          note: newWorkEnd < wantLeave
+            ? `因最低 30 分鐘且須為 5 分鐘倍數，有效上班時間調整至 ${fmt(slipStart)}，可於 ${fmt(newWorkEnd)} 離開`
+            : null
+        });
+        return { slips, workStart: slipStart, workEnd: newWorkEnd,
+                 actualDeparture: newWorkEnd, noEarlyLeave: false };
+      }
+
+      // 往前最多拉到 08:00 仍不夠 → 晨間假拉滿，剩餘以早退假補
+      const morningDur = arrival - T8;
+      slips.push({
+        type:      '遲到補假',
+        typeClass: 'slip-late',
+        tag:       '遲到補假',
+        tagClass:  'tag-late',
+        start:     T8,
+        end:       arrival,
+        duration:  morningDur,
+        note:      `上班時間已往前調整至 08:00（最早限制），仍需補填以下早退假單`
+      });
+      workStart = T8;
+      workEnd   = T8 + WORK;
+      // 繼續到下方早退假計算
+
+    // ④ 08:00–09:00 正常到班 + 提早離開
     } else {
       workStart = arrival;
+      workEnd   = workStart + WORK;
     }
 
-    workEnd = workStart + WORK;
+    // ─── 早退假計算（適用②早退、③溢出、④）────────────────────
 
-    // ③ 若加上遲到補假的調整後，離開時間已不早於下班時間，只需遲到補假
-    if (wantLeave >= workEnd) {
-      return { slips, workStart, workEnd, actualDeparture: workEnd, noEarlyLeave: true };
-    }
-
-    // ④ 午休等效：12:01–12:59 等同 12:00 離開（下午假從 13:00 算）
+    // 午休等效：12:01–12:59 等同 12:00 離開（下午假從 13:00 算）
     let effectiveDep = wantLeave;
     let lunchNote    = null;
     if (wantLeave > T12 && wantLeave < T13) {
@@ -409,7 +457,6 @@
       effectiveDep = T12;
     }
 
-    // ⑤ 計算提早離開假
     if (effectiveDep >= T13) {
       // 下午離開
       const earlyDur  = workEnd - effectiveDep;
@@ -448,7 +495,7 @@
       actualDeparture = T12;
 
     } else {
-      // 上午離開（< 12:00）→ 一律只需一張假單（從離開時間到下班，午休不計入時數）
+      // 上午離開（< 12:00）→ 一張假單，午休不計入時數
       const morDur   = T12 - effectiveDep;
       const rounded  = roundUp(morDur);
       const morStart = T12 - rounded;
@@ -520,7 +567,7 @@
           <div class="no-leave-banner">
             <div class="nlb-icon">ℹ</div>
             <div class="nlb-title">無需提早離開假</div>
-            <div class="nlb-sub">但因 09:01 後到班，需填寫以下遲到補假單</div>
+            <div class="nlb-sub">但因 09:31 後到班，需填寫以下遲到補假單</div>
           </div>
         `;
       }
