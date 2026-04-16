@@ -551,7 +551,7 @@
         <span class="time-colon" aria-hidden="true">:</span>
         <select id="arrival-m" onchange="syncDeparture()" aria-label="上班時（分鐘）"></select>
       </div>
-      <div class="field-note">彈性時間 09:00–09:30｜09:30（含）前到視為正常；09:31 後打卡一律需填遲到補假單</div>
+      <div class="field-note">彈性時間 09:00–09:30｜09:30（含）前到視為正常；09:31 後打卡一律需填遲到補假單，工時從 09:00 起算，下班固定 18:00</div>
     </div>
 
     <div class="form-group">
@@ -590,10 +590,10 @@
         <li>每日在公司待滿 <strong>9 小時</strong>（含午休 1 小時，實際工作 8 小時）</li>
         <li>上班時間彈性區間：<strong>08:00–09:30</strong>，依實際到班時間計算下班時間</li>
         <li>09:01–09:30 到班且同日提早離開，須<strong>往前調整上班時間</strong>（一張晨間假單），將有效上班時間提前，下班時間隨之縮短；18:01–18:30 屬彈性延伸區間，<strong>不可作為請假時段</strong></li>
-        <li><strong>09:31 後到班，無論何時離開，一律需填遲到補假單</strong>（以 09:30 為基準起算）</li>
+        <li><strong>09:31 後到班，無論何時離開，一律需填遲到補假單</strong>（假單填 09:00 ~ 實際到班時間，工時從 09:00 起算，下班固定 18:00）</li>
         <li>假單最短 <strong>30 分鐘</strong>，超過後以 <strong>5 分鐘</strong>為單位</li>
         <li>12:00–13:00 為午休，跨越午休時間工具會自動計算，<strong>一律只需一張假單</strong></li>
-        <li>兩張假單僅出現在：09:31 後打卡 <strong>且</strong> 同日有提早離開、或 09:01–09:30 打卡且需早退超過 08:00 可往前量（極罕見）</li>
+        <li>兩張假單僅出現在：09:31 後打卡 <strong>且</strong> 同日有提早離開（需遲到補假 + 提早離開假）、或 09:01–09:30 打卡且需早退超過 08:00 可往前量（極罕見）</li>
       </ul>
     </div>
   </div>
@@ -654,25 +654,21 @@
                actualDeparture: naturalWorkEnd, noEarlyLeave: true };
     }
 
-    // ② 09:31 後到班 → 遲到補假（以 09:30 為基準）
+    // ② 09:31 後到班 → 遲到補假（從 09:00 起算，下班固定 18:00）
     if (arrival > T930) {
-      const lateDur   = arrival - T930;
-      const rounded   = roundUp(lateDur);
-      const lateStart = arrival - rounded;
+      const lateDur = arrival - T9;
       slips.push({
         type:      '遲到補假',
         typeClass: 'slip-late',
         tag:       '遲到補假',
         tagClass:  'tag-late',
-        start:     lateStart,
+        start:     T9,
         end:       arrival,
-        duration:  rounded,
-        note: lateDur < 30
-          ? `實際遲到 ${lateDur} 分鐘，未達最低 30 分鐘，自動往前補至 ${fmt(lateStart)}`
-          : null
+        duration:  lateDur,
+        note:      null
       });
-      workStart = lateStart;
-      workEnd   = workStart + WORK;
+      workStart = T9;
+      workEnd   = T9 + WORK;
 
       // 若遲到補假調整後離開時間已不早於下班，只需遲到補假
       if (wantLeave >= workEnd) {
