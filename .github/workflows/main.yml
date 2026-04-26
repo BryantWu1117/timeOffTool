@@ -1,0 +1,46 @@
+# .github/workflows/codex-scheduled-task.yml
+
+name: Codex Scheduled Task
+
+on:
+  schedule:
+    - cron: "0 1 * * *" # 每天台北時間 09:00
+  workflow_dispatch: # 允許手動觸發
+
+jobs:
+  codex-task:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          npm install
+
+      - name: Run tests
+        run: |
+          npm test
+
+      - name: Run Codex task
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          codex exec "請檢查這個 repository 的測試結果、lint 問題與潛在 bug，必要時修改程式碼並總結變更。"
+
+      - name: Commit changes
+        run: |
+          git config user.name "codex-bot"
+          git config user.email "codex-bot@example.com"
+          git add .
+          git diff --cached --quiet || git commit -m "chore: automated Codex maintenance"
+
+      - name: Push changes
+        run: |
+          git push
