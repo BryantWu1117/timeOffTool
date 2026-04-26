@@ -20,6 +20,7 @@ jobs:
 
     env:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      CODEX_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
     steps:
       - name: Checkout repo
@@ -48,9 +49,16 @@ jobs:
 
       - name: Run Codex hello task
         run: |
+          export OPENAI_API_KEY="${OPENAI_API_KEY}"
+          export CODEX_API_KEY="${OPENAI_API_KEY}"
+
+          echo "OPENAI_API_KEY length: ${#OPENAI_API_KEY}"
+          echo "CODEX_API_KEY length: ${#CODEX_API_KEY}"
+
           codex exec "請用繁體中文說：嗨，這是每天四次的 Codex GitHub Actions 排程任務。"
 
       - name: Update heartbeat file
+        if: success()
         run: |
           echo "# Codex Heartbeat" > codex-heartbeat.md
           echo "" >> codex-heartbeat.md
@@ -60,6 +68,7 @@ jobs:
           echo "Message: 嗨，這是每天四次的 Codex GitHub Actions 排程任務。" >> codex-heartbeat.md
 
       - name: Commit and push
+        if: success()
         run: |
           git config user.name "codex-bot"
           git config user.email "codex-bot@example.com"
