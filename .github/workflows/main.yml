@@ -4,8 +4,12 @@ name: Codex Scheduled Task
 
 on:
   schedule:
-    - cron: "0 1 * * *" # 每天台北時間 09:00
-  workflow_dispatch: # 允許手動觸發
+    - cron: "0 22 * * *"   # 台灣時間 06:00
+    - cron: "5 3 * * *"    # 台灣時間 11:05
+    - cron: "10 8 * * *"   # 台灣時間 16:10
+    - cron: "15 13 * * *"  # 台灣時間 21:15
+
+  workflow_dispatch:
 
 jobs:
   codex-task:
@@ -13,34 +17,37 @@ jobs:
 
     permissions:
       contents: write
-      pull-requests: write
-      issues: write
 
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Install dependencies
-        run: |
-          npm install
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
 
-      - name: Run tests
+      - name: Install Codex CLI
         run: |
-          npm test
+          npm install -g @openai/codex
 
-      - name: Run Codex task
+      - name: Run Codex hello task
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          codex exec "請檢查這個 repository 的測試結果、lint 問題與潛在 bug，必要時修改程式碼並總結變更。"
+          codex exec "請用繁體中文說：嗨，這是每天四次的 Codex GitHub Actions 排程任務。"
 
-      - name: Commit changes
+      - name: Update heartbeat file
+        run: |
+          echo "# Codex Heartbeat" > codex-heartbeat.md
+          echo "" >> codex-heartbeat.md
+          echo "Last run UTC: $(date -u)" >> codex-heartbeat.md
+          echo "Last run Taiwan time: $(TZ='Asia/Taipei' date)" >> codex-heartbeat.md
+
+      - name: Commit and push
         run: |
           git config user.name "codex-bot"
           git config user.email "codex-bot@example.com"
-          git add .
-          git diff --cached --quiet || git commit -m "chore: automated Codex maintenance"
-
-      - name: Push changes
-        run: |
+          git add codex-heartbeat.md
+          git diff --cached --quiet || git commit -m "chore: codex scheduled heartbeat"
           git push
