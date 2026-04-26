@@ -18,9 +18,23 @@ jobs:
     permissions:
       contents: write
 
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+
+      - name: Check OpenAI API key exists
+        run: |
+          if [ -z "$OPENAI_API_KEY" ]; then
+            echo "::error::OPENAI_API_KEY is empty. Please check GitHub Actions secrets."
+            exit 1
+          fi
+
+          echo "OPENAI_API_KEY exists."
+          echo "Key length: ${#OPENAI_API_KEY}"
+          echo "Key prefix: ${OPENAI_API_KEY:0:7}********"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -30,10 +44,9 @@ jobs:
       - name: Install Codex CLI
         run: |
           npm install -g @openai/codex
+          codex --version
 
       - name: Run Codex hello task
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           codex exec "請用繁體中文說：嗨，這是每天四次的 Codex GitHub Actions 排程任務。"
 
@@ -43,6 +56,8 @@ jobs:
           echo "" >> codex-heartbeat.md
           echo "Last run UTC: $(date -u)" >> codex-heartbeat.md
           echo "Last run Taiwan time: $(TZ='Asia/Taipei' date)" >> codex-heartbeat.md
+          echo "" >> codex-heartbeat.md
+          echo "Message: 嗨，這是每天四次的 Codex GitHub Actions 排程任務。" >> codex-heartbeat.md
 
       - name: Commit and push
         run: |
